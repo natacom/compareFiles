@@ -68,18 +68,13 @@ def test_difDir_one_dir():
 
 def test_difDir_recursive():
     t = target.Compare()
-    tree = t._getChildrenList('./testSample')
+    tree = t._getChildrenList('./testSample/dir2')
     expected = [
-        './testSample/dir1/dir1-1/item_aaa.txt',
-        './testSample/dir1/dir1-1/item_abc.txt',
         './testSample/dir2/dir2-1/item_aaa.txt',
         './testSample/dir2/dir2-1/item_abc.txt',
         './testSample/dir2/dir2-2/item_abc.txt',
         './testSample/dir2/item_aaa.txt',
         './testSample/dir2/item_abc.txt',
-        './testSample/item1_aaa.txt',
-        './testSample/item2_aaa.txt',
-        './testSample/item3_abc.txt',
     ]
     assert tree == expected
 
