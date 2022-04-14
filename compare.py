@@ -70,7 +70,7 @@ class Compare():
         print(f'Item 1: {item1}')
         while item2 == '':
             print('(2) Path of file or directory:')
-            item1 = input()
+            item2 = input()
         print(f'Item 2: {item2}')
         set1 = set(self._getChildrenList(item1))
         set2 = set(self._getChildrenList(item2))
