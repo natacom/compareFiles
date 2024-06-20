@@ -1,88 +1,159 @@
 import pytest
 import compare as target
+import timeit
+
+# Test data
+# ---------------
+# - ./testSample
+#   - dir1
+#     - dir1_empty
+#     - dir1-1
+#       - item_aaa.txt      | aaa
+#       - item_abc.txt      | abc
+#   - dir2
+#     - dir2-1
+#       - item_abc.txt      | abc
+#       - item_aaa.txt      | aaa
+#     - dir2-2
+#       - item_ccc.txt      | ccc
+#     - item_aaa.txt        | aaa
+#     - item_abc.txt        | abc
+#   - dir3
+#     - item_aaa.txt        | aaa
+#     - item_xxx.txt        | xxx
+#     - test.txt            | aaa
+#   - item1_aaa.txt         | aaa
+#   - item2_aaa.txt         | aaa
+#   - item3_abc.txt         | abc
+
 
 def test_printResult_both_is_None():
-    t = target.Compare()
-    with pytest.raises(Exception) as e:
-        t.printResult(None, None)
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    with pytest.raises(Exception):
+        comparer.printResult(None, None)
+
 
 def test_printResult_only_item1(capfd):
-    t = target.Compare()
+    comparer = target.DirectoryComparer(isOutputToFile=False)
 
-    t.printResult('test', None)
+    comparer.printResult('test', None)
     out, err = capfd.readouterr()
     assert out == '[ <- ] test\n'
-    assert err is ''
+    assert err == ''
 
-    t.printResult('test', None, True)
+    comparer.printResult('test', None, True)
     out, err = capfd.readouterr()
     assert out == '[ <- ] test\n'
-    assert err is ''
+    assert err == ''
+
 
 def test_printResult_only_item2(capfd):
-    t = target.Compare()
+    comparer = target.DirectoryComparer(isOutputToFile=False)
 
-    t.printResult(None, 'test')
+    comparer.printResult(None, 'test')
     out, err = capfd.readouterr()
     assert out == '[ -> ] test\n'
-    assert err is ''
+    assert err == ''
 
-    t.printResult(None, 'test', True)
+    comparer.printResult(None, 'test', True)
     out, err = capfd.readouterr()
     assert out == '[ -> ] test\n'
-    assert err is ''
+    assert err == ''
+
 
 def test_printResult_false(capfd):
-    t = target.Compare()
-    t.printResult('test1', 'test2')
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    comparer.printResult('test1', 'test2')
     out, err = capfd.readouterr()
     assert out == '[Diff] test1 \ttest2\n'
-    assert err is ''
+    assert err == ''
+
 
 def test_printResult_true(capfd):
-    t = target.Compare()
-    t.printResult('test1', 'test2', True)
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    comparer.printResult('test1', 'test2', True)
     out, err = capfd.readouterr()
     assert out == '[Same] test1 \ttest2\n'
-    assert err is ''
+    assert err == ''
+
 
 def test_compareFiles_same():
-    t = target.Compare()
-    result = t._compareFiles('./testSample/item1_aaa.txt', './testSample/item2_aaa.txt')
+    # - ./testSample
+    #   - item1_aaa.txt
+    #   - item2_aaa.txt
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    result = comparer._compareFiles('./testSample/item1_aaa.txt',
+                                    './testSample/item2_aaa.txt')
     assert result is True
 
+
 def test_compareFiles_diff():
-    t = target.Compare()
-    result = t._compareFiles('./testSample/item1_aaa.txt', './testSample/item3_abc.txt')
-    assert not result is True
+    # - ./testSample
+    #   - item1_aaa.txt         | aaa
+    #   - item3_abc.txt         | abc
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    result = comparer._compareFiles('./testSample/item1_aaa.txt',
+                                    './testSample/item3_abc.txt')
+    assert result is not True
 
-def test_difDir_one_file():
-    t = target.Compare()
-    tree = t._getChildrenList('./testSample/dir1/dir1-1/item_aaa.txt')
-    assert tree == ['./testSample/dir1/dir1-1/item_aaa.txt']
 
-def test_difDir_one_dir():
-    t = target.Compare()
-    tree = t._getChildrenList('./testSample/dir1/dir1_empty')
-    assert tree == []
+def test_diffDir_one_file():
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    map = {}
+    comparer._updateHashMap('./testSample/dir1/dir1-1/item_aaa.txt', map)
+    assert list(map.values()) == ['./testSample/dir1/dir1-1/item_aaa.txt']
 
-def test_difDir_recursive():
-    t = target.Compare()
-    tree = t._getChildrenList('./testSample/dir2')
+
+def test_diffDir_one_dir():
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    map = {}
+    comparer._updateHashMap('./testSample/dir1/dir1_empty', map)
+    assert list(map.values()) == []
+
+
+def test_diffDir_recursive():
+    # - ./testSample
+    #   - dir2
+    #     - dir2-1
+    #       - item_abc.txt      | abc
+    #       - item_aaa.txt      | aaa
+    #     - dir2-2
+    #       - item_ccc.txt      | ccc
+    #     - item_aaa.txt        | aaa
+    #     - item_abc.txt        | abc
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    map = {}
+    comparer._updateHashMap('./testSample/dir2', map)
+
     expected = [
-        './testSample/dir2/dir2-1/item_aaa.txt',
-        './testSample/dir2/dir2-1/item_abc.txt',
-        './testSample/dir2/dir2-2/item_abc.txt',
         './testSample/dir2/item_aaa.txt',
         './testSample/dir2/item_abc.txt',
+        './testSample/dir2/dir2-2/item_ccc.txt',
+    ].sort()
+    assert list(map.values()).sort() == expected
+
+    # duplicated map
+    expectedDuplicatedFiles = [
+        ('./testSample/dir2/item_aaa.txt',
+         './testSample/dir2/dir2-1/item_aaa.txt'),
+        ('./testSample/dir2/item_abc.txt',
+         './testSample/dir2/dir2-1/item_abc.txt'),
     ]
-    assert tree == expected
+    assert list(comparer.duplicatedFiles) == expectedDuplicatedFiles
+
 
 def test_compareLists_oneFile_same():
-    t = target.Compare()
-    set1 = set(t._getChildrenList('./testSample/dir1/dir1-1/item_aaa.txt'))
-    set2 = set(t._getChildrenList('./testSample/dir2/item_aaa.txt'))
-    (matches, unmet1, unmet2) = t.compareLists(set1, set2)
+    # - ./testSample
+    #   - dir1
+    #     - dir1-1
+    #       - item_aaa.txt      | aaa
+    #   - dir2
+    #     - item_aaa.txt        | aaa
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    comparer.updateBothHashMaps(
+        './testSample/dir1/dir1-1/item_aaa.txt',
+        './testSample/dir2/item_aaa.txt')
+    (matches, unmet1, unmet2) = comparer.compare()
     expectedMatches = [
         ('./testSample/dir1/dir1-1/item_aaa.txt',
          './testSample/dir2/item_aaa.txt'),
@@ -93,11 +164,20 @@ def test_compareLists_oneFile_same():
     assert unmet1.sort() == expectedUnmet1.sort()
     assert unmet2.sort() == expectedUnmet2.sort()
 
+
 def test_compareLists_oneFile_diff():
-    t = target.Compare()
-    set1 = set(t._getChildrenList('./testSample/dir1/dir1-1/item_aaa.txt'))
-    set2 = set(t._getChildrenList('./testSample/dir2/item_abc.txt'))
-    (matches, unmet1, unmet2) = t.compareLists(set1, set2)
+    # - ./testSample
+    #   - dir1
+    #     - dir1_empty
+    #     - dir1-1
+    #       - item_aaa.txt      | aaa
+    #   - dir2
+    #     - item_abc.txt        | abc
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    comparer.updateBothHashMaps(
+        './testSample/dir1/dir1-1/item_aaa.txt',
+        './testSample/dir2/item_abc.txt')
+    (matches, unmet1, unmet2) = comparer.compare()
     expectedMatches = []
     expectedUnmet1 = ['./testSample/dir1/dir1-1/item_aaa.txt']
     expectedUnmet2 = ['./testSample/dir2/item_abc.txt']
@@ -105,11 +185,22 @@ def test_compareLists_oneFile_diff():
     assert unmet1.sort() == expectedUnmet1.sort()
     assert unmet2.sort() == expectedUnmet2.sort()
 
+
 def test_compareLists_oneDir_same():
-    t = target.Compare()
-    set1 = set(t._getChildrenList('./testSample/dir1/dir1-1'))
-    set2 = set(t._getChildrenList('./testSample/dir2/dir2-1'))
-    (matches, unmet1, unmet2) = t.compareLists(set1, set2)
+    # - ./testSample
+    #   - dir1
+    #     - dir1-1
+    #       - item_aaa.txt      | aaa
+    #       - item_abc.txt      | abc
+    #   - dir2
+    #     - dir2-1
+    #       - item_abc.txt      | abc
+    #       - item_aaa.txt      | aaa
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    comparer.updateBothHashMaps(
+        './testSample/dir1/dir1-1',
+        './testSample/dir2/dir2-1')
+    (matches, unmet1, unmet2) = comparer.compare()
     expectedMatches = [
         ('./testSample/dir1/dir1-1/item_aaa.txt',
          './testSample/dir2/dir2-1/item_aaa.txt'),
@@ -122,11 +213,20 @@ def test_compareLists_oneDir_same():
     assert unmet1.sort() == expectedUnmet1.sort()
     assert unmet2.sort() == expectedUnmet2.sort()
 
+
 def test_compareLists_oneDir_both():
-    t = target.Compare()
-    set1 = set(t._getChildrenList('./testSample/dir1/dir1-1'))
-    set2 = set(t._getChildrenList('./testSample/dir2/dir2-2'))
-    (matches, unmet1, unmet2) = t.compareLists(set1, set2)
+    # - ./testSample
+    #   - dir1
+    #     - dir1-1
+    #       - item_aaa.txt      | aaa
+    #       - item_abc.txt      | abc
+    #     - dir2-2
+    #       - item_abc.txt      | abc
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    comparer.updateBothHashMaps(
+        './testSample/dir1/dir1-1',
+        './testSample/dir2/dir2-2')
+    (matches, unmet1, unmet2) = comparer.compare()
     expectedMatches = [
         ('./testSample/dir1/dir1-1/item_abc.txt',
          './testSample/dir2/dir2-2/item_abc.txt'),
@@ -136,3 +236,16 @@ def test_compareLists_oneDir_both():
     assert matches.sort() == expectedMatches.sort()
     assert unmet1.sort() == expectedUnmet1.sort()
     assert unmet2.sort() == expectedUnmet2.sort()
+
+
+def func_operation():
+    comparer = target.DirectoryComparer(isOutputToFile=False)
+    comparer.updateBothHashMaps('./testSample/dir1', './testSample/dir2')
+    (matches, unmet1, unmet2) = comparer.compare()
+
+
+# You can see elapsed time if you run the test with the option -s.
+def test_check_time():
+    elapsed_time = timeit.timeit(func_operation, number=5)
+    print(f'Elapsed time is {elapsed_time}.')
+    assert True
