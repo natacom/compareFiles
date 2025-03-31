@@ -27,7 +27,9 @@ class Compare():
             f2md5 = hashlib.md5(data).hexdigest()
         return f1md5 == f2md5
 
-    def _isSameMd5(self, path1: str, path2: str) -> bool:
+    def _isMatch(self, path1: str, path2: str) -> bool:
+        if path.basename(path1) != path.basename(path2):
+            return False
         with open(path1, 'rb') as f:
             md5OfItem1 = hashlib.md5(f.read()).hexdigest()
         with open(path2, 'rb') as f:
@@ -35,8 +37,14 @@ class Compare():
         return md5OfItem1 == md5OfItem2
 
     def compareLists(self, list1: set, list2: set) -> tuple:
-        matches = itertools.product(list1,list2)
-        matches = set(filter(lambda tpl: self._isSameMd5(tpl[0], tpl[1]), matches))
+        matches = set(itertools.product(list1,list2))
+        print(f'{len(list1)} items x {len(list2)} items => compare {len(matches)} items')
+        if len(matches) < 10000:
+            matches = set(filter(lambda tpl: self._isMatch(tpl[0], tpl[1]), matches))
+        else:
+            for m in matches:
+                if self._isMatch(m[0], m[1]):
+                    self.printResult(m[0], m[1], True)
         combItem1 = set([x[0] for x in matches])
         combItem2 = set([x[1] for x in matches])
         unmet1 = list1 ^ combItem1
